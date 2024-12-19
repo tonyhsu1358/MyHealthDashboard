@@ -83,27 +83,83 @@
             /* 背景微灰色 */
         }
 
-        /* 按鈕樣式（新增用於切換圖表） */
-        .toggle-chart-button {
+        .button {
+            height: 50px;
+            /* 統一高度 */
             padding: 10px 20px;
-            background-color: #007bff;
-            /* 藍色背景 */
+            /* 統一內距 */
             color: white;
-            /* 白色文字 */
+            /* 字體顏色 */
             border: none;
+            /* 移除預設邊框 */
             cursor: pointer;
+            /* 指標顯示為手型 */
             border-radius: 5px;
             /* 圓角 */
             font-size: 1em;
+            /* 字體大小 */
             margin: 10px 0;
-            /* 與其他內容間距 */
+            /* 上下間距 */
             transition: background-color 0.3s;
-            /* 增加滑鼠懸停過渡效果 */
+            /* 過渡效果 */
         }
 
+        /* 個別設定按鈕的背景顏色 */
+        .toggle-chart-button {
+            background-color: #007bff;
+            /* 圖表按鈕顏色 */
+        }
+
+        .toggle-favorites-button {
+            background-color: #ff6f91;
+            /* 我的最愛按鈕顏色 */
+        }
+
+        /* 懸停效果 */
         .toggle-chart-button:hover {
             background-color: #0056b3;
             /* 懸停時的深藍色 */
+        }
+
+        .toggle-favorites-button:hover {
+            background-color: #ff4e75;
+            /* 懸停時的深粉色 */
+        }
+
+
+        /* 我的最愛清單樣式 */
+        #favorites-list {
+            margin-bottom: 20px;
+            /* 增加與上方區塊的間距 */
+            display: none;
+            /* 頁面初始時隱藏 */
+            margin-top: 20px;
+            padding: 15px;
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        #favorites-list h2 {
+            margin-bottom: 10px;
+        }
+
+        #favorites-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #favorites-table th,
+        #favorites-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        #favorites-table th {
+            background-color: #34495e;
+            color: white;
         }
 
         /* 新增：允許圖表左右滑動 */
@@ -202,14 +258,38 @@
             資料加載中，請稍後...
         </div>
 
-        <!-- 圖表切換按鈕 -->
-        <button class="toggle-chart-button" onclick="toggleChart()">顯示/隱藏圖表</button>
+        <!-- 按鈕區域 -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button class="button toggle-chart-button" onclick="toggleChart()">顯示/隱藏圖表</button>
+            <button class="button toggle-favorites-button" onclick="toggleFavorites()">顯示/隱藏我的最愛</button>
+        </div>
+
 
         <!-- 圖表區 -->
         <div class="chart-scroll-container">
             <div class="chart-container" id="chart-container">
                 <canvas id="cityChart"></canvas>
             </div>
+        </div>
+
+        <!-- 我的最愛清單區 -->
+        <div id="favorites-list" class="hidden">
+            <h2>我的最愛</h2>
+            <table id="favorites-table">
+                <thead>
+                    <tr>
+                        <th>縣市</th>
+                        <th>區域</th>
+                        <th>診所名稱</th>
+                        <th>地址</th>
+                        <th>電話</th>
+                        <th>診所類型</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 動態填充我的最愛資料 -->
+                </tbody>
+            </table>
         </div>
 
         <!-- 搜尋與篩選區 -->
@@ -272,6 +352,7 @@
                         <th>地址</th>
                         <th>電話</th>
                         <th>診所類型</th>
+                        <th>加入我的最愛</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -282,6 +363,7 @@
             <!-- 總診所數量摘要 -->
             <p id="summary" style="text-align: center; font-weight: bold; margin-top: 10px;">總診所數量：</p>
             <!-- 導出按鈕 -->
+
         </section>
     </main>
     <footer>
@@ -316,6 +398,7 @@
 
 
         let clinicData = []; // 儲存從 CSV 加載的資料
+        let favoriteClinics = []; // 儲存我的最愛診所資料
 
         // 固定縣市的顯示順序
         const cityOrder = [
@@ -456,22 +539,54 @@
             updateTable(filteredData);
         }
 
+        // 更新表格內容
         function updateTable(filteredData) {
             const tableBody = document.querySelector("#clinic-table tbody");
             tableBody.innerHTML = "";
 
-            filteredData.forEach(clinic => {
+            filteredData.forEach((clinic) => {
                 const row = document.createElement("tr");
-                ["縣市", "區域", "醫事機構名稱", "地址", "電話", "診所類型"].forEach(key => {
+                ["縣市", "區域", "醫事機構名稱", "地址", "電話", "診所類型"].forEach((key) => {
                     const cell = document.createElement("td");
                     cell.textContent = clinic[key] || "N/A";
                     row.appendChild(cell);
                 });
+
+                // 新增勾選框
+                const favoriteCell = document.createElement("td");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+
+                // 使用診所名稱與地址作為唯一識別碼
+                const uniqueId = `${clinic["醫事機構名稱"]}_${clinic["地址"]}`;
+
+                // 判斷是否已加入我的最愛
+                checkbox.checked = favoriteClinics.some(
+                    (fav) => fav.uniqueId === uniqueId
+                );
+
+                // 勾選或取消勾選時更新我的最愛清單
+                checkbox.onchange = () => toggleFavorite(clinic, uniqueId, checkbox.checked);
+                favoriteCell.appendChild(checkbox);
+                row.appendChild(favoriteCell);
+
                 tableBody.appendChild(row);
             });
 
-            // 更新摘要
             updateSummary(filteredData.length);
+        }
+
+        // 切換我的最愛
+        function toggleFavorite(clinic, uniqueId, isChecked) {
+            if (isChecked) {
+                // 如果已勾選，且未被加入過，才新增
+                if (!favoriteClinics.some((fav) => fav.uniqueId === uniqueId)) {
+                    favoriteClinics.push({ ...clinic, uniqueId });
+                }
+            } else {
+                // 如果取消勾選，從陣列中移除
+                favoriteClinics = favoriteClinics.filter((fav) => fav.uniqueId !== uniqueId);
+            }
         }
 
 
@@ -563,6 +678,47 @@
             const chartContainer = document.getElementById('chart-container');
             chartContainer.classList.toggle('hidden'); // 顯示/隱藏圖表
         }
+        // 修復的切換「我的最愛」顯示/隱藏功能
+        function toggleFavorites() {
+            const favoritesList = document.getElementById("favorites-list");
+            const favoritesTableBody = document.querySelector("#favorites-table tbody");
+
+            // 判斷當前是否需要顯示或隱藏
+            if (favoritesList.style.display === "none" || favoritesList.style.display === "") {
+                // 清空現有內容，避免重複填充
+                favoritesTableBody.innerHTML = "";
+
+                // 如果沒有收藏，顯示提示
+                if (favoriteClinics.length === 0) {
+                    const row = document.createElement("tr");
+                    const cell = document.createElement("td");
+                    cell.colSpan = 6; // 跨 6 欄
+                    cell.textContent = "尚未加入我的最愛";
+                    cell.style.textAlign = "center";
+                    row.appendChild(cell);
+                    favoritesTableBody.appendChild(row);
+                } else {
+                    // 動態生成收藏清單
+                    favoriteClinics.forEach((clinic) => {
+                        const row = document.createElement("tr");
+                        ["縣市", "區域", "醫事機構名稱", "地址", "電話", "診所類型"].forEach((key) => {
+                            const cell = document.createElement("td");
+                            cell.textContent = clinic[key] || "N/A";
+                            row.appendChild(cell);
+                        });
+                        favoritesTableBody.appendChild(row);
+                    });
+                }
+
+                // 設置為顯示狀態
+                favoritesList.style.display = "block";
+            } else {
+                // 設置為隱藏狀態
+                favoritesList.style.display = "none";
+            }
+        }
+
+
     </script>
 </body>
 
